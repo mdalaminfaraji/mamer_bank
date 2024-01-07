@@ -4,6 +4,8 @@ from django.urls import reverse_lazy
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, redirect
 from django.views import View
+from django.core.mail import EmailMessage, EmailMultiAlternatives
+from django.template.loader import render_to_string
 from django.http import HttpResponse
 from django.views.generic import CreateView, ListView
 from transactions.constants import DEPOSIT, WITHDRAWAL,LOAN, LOAN_PAID
@@ -15,6 +17,15 @@ from transactions.forms import (
     LoanRequestForm,
 )
 from transactions.models import Transaction
+
+def send_transaction_email(user, amount, subject, template):
+        message = render_to_string(template, {
+            'user' : user,
+            'amount' : amount,
+        })
+        send_email = EmailMultiAlternatives(subject, '', to=[user.email])
+        send_email.attach_alternative(message, "text/html")
+        send_email.send()
 
 class TransactionCreateMixin(LoginRequiredMixin, CreateView):
     template_name = 'transactions/transaction_form.html'
@@ -63,6 +74,7 @@ class DepositMoneyView(TransactionCreateMixin):
             self.request,
             f'{"{:,.2f}".format(float(amount))}$ was deposited to your account successfully'
         )
+        # send_transaction_email(self.request.user, amount, "Deposite Message", "transactions/deposite_email.html")
 
         return super().form_valid(form)
 
@@ -87,6 +99,8 @@ class WithdrawMoneyView(TransactionCreateMixin):
             self.request,
             f'Successfully withdrawn {"{:,.2f}".format(float(amount))}$ from your account'
         )
+        
+        send_transaction_email(self.request.user, amount, "withdraw Message", "transactions/withdraw.html")
 
         return super().form_valid(form)
 
